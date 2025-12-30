@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_24.11.1", "postgresql"]
+nixPkgs = ["nodejs-20_x", "postgresql"]
 
 [phases.install]
 cmds = ["npm ci"]
