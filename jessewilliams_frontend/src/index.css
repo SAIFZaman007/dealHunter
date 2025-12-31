@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+.prose {
+  text-align: left !important;
+}
+
+.prose * {
+  text-align: left !important;
+}

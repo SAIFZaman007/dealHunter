@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
-const Signup = () => {
+const Signup = ({ onSignupComplete }) => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Register, 2: Verify OTP
+  const [step, setStep] = useState(1); 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -56,6 +56,13 @@ const Signup = () => {
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
         
         setSuccess('Account verified! Redirecting to onboarding...');
+        
+        // Call the callback to update app auth state
+        if (onSignupComplete) {
+          onSignupComplete();
+        }
+        
+        // ✅ REDIRECT TO ONBOARDING (not chat)
         setTimeout(() => navigate('/onboarding'), 1500);
       }
     } catch (err) {
