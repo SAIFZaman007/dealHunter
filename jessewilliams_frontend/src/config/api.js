@@ -7,9 +7,8 @@
 
 let baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Ensure /api path is included
 if (!baseUrl.includes('/api')) {
-  baseUrl = baseUrl.replace(/\/$/, '') + '/api'; // Remove trailing slash, then add /api
+  baseUrl = baseUrl.replace(/\/$/, '') + '/api';
 }
 
 const API_BASE_URL = baseUrl;

@@ -143,10 +143,30 @@ const DealHunterChat = () => {
       }
 
       console.error('Error in sendMessage:', error);
+      
+      let errorMessage = 'I apologize, but I encountered an error. Please try again.';
+      
+      // Provide more specific error messages
+      if (error.message.includes('503')) {
+        errorMessage = 'The AI service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.message.includes('504')) {
+        errorMessage = 'The request timed out. Please try again with a shorter query.';
+      } else if (error.message.includes('needsOnboarding')) {
+        errorMessage = 'Please complete your profile setup before chatting.';
+        setTimeout(() => navigate('/onboarding'), 2000);
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        errorMessage = 'Your session has expired. Please log in again.';
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+        }, 2000);
+      }
+      
       setMessages(prev =>
         prev.filter(m => !m.isStatus).concat({
           role: 'assistant',
-          content: `I apologize, but I encountered an error: ${error.message}. Please try again or rephrase your question.`
+          content: errorMessage
         })
       );
     } finally {
