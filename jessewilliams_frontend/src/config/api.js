@@ -2,9 +2,17 @@
  * API Configuration
  * Uses environment variables for backend/AI service URLs
  * Falls back to localhost for development
+ * Automatically appends /api prefix if not present
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+let baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Ensure /api path is included
+if (!baseUrl.includes('/api')) {
+  baseUrl = baseUrl.replace(/\/$/, '') + '/api'; // Remove trailing slash, then add /api
+}
+
+const API_BASE_URL = baseUrl;
 const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
 
 export { API_BASE_URL, AI_SERVICE_URL };
