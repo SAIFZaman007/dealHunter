@@ -26,50 +26,82 @@ router.post('/onboarding', auth, async (req, res) => {
       });
     }
 
-    // SAVE TO DATABASE (not just AI service)
-    await prisma.userProfile.upsert({
-      where: { userId: req.user.id },
-      update: {
-        propertyType: profile.propertyType,
-        strategy: profile.strategy,
-        rentalType: profile.rentalType,
-        startingCapital: parseFloat(profile.startingCapital),
-        targetGeography: profile.targetGeography,
-        investmentTimeline: profile.investmentTimeline,
-        profitGoal: parseFloat(profile.profitGoal)
-      },
-      create: {
-        userId: req.user.id,
-        propertyType: profile.propertyType,
-        strategy: profile.strategy,
-        rentalType: profile.rentalType,
-        startingCapital: parseFloat(profile.startingCapital),
-        targetGeography: profile.targetGeography,
-        investmentTimeline: profile.investmentTimeline,
-        profitGoal: parseFloat(profile.profitGoal)
-      }
+    // Validate required fields
+    const requiredFields = ['propertyType', 'strategy', 'startingCapital', 'targetGeography', 'investmentTimeline', 'profitGoal'];
+    const missingFields = requiredFields.filter(field => !profile[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    // SAVE TO DATABASE - Use findUnique then update or create
+    let userProfile = await prisma.userProfile.findUnique({
+      where: { userId: req.user.id }
     });
 
-    // Also send to AI service for immediate use
-    const response = await axios.post(
-      `${AI_SERVICE_URL}/api/onboarding`,
-      { userId: req.user.id, profile },
-      {
-        headers: {
-          'Authorization': `Bearer ${INTERNAL_API_SECRET}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000
-      }
-    );
+    if (userProfile) {
+      // Update existing profile
+      userProfile = await prisma.userProfile.update({
+        where: { userId: req.user.id },
+        data: {
+          propertyType: profile.propertyType,
+          strategy: profile.strategy,
+          rentalType: profile.rentalType || null,
+          startingCapital: parseFloat(profile.startingCapital),
+          targetGeography: profile.targetGeography,
+          investmentTimeline: profile.investmentTimeline,
+          profitGoal: parseFloat(profile.profitGoal)
+        }
+      });
+    } else {
+      // Create new profile
+      userProfile = await prisma.userProfile.create({
+        data: {
+          userId: req.user.id,
+          propertyType: profile.propertyType,
+          strategy: profile.strategy,
+          rentalType: profile.rentalType || null,
+          startingCapital: parseFloat(profile.startingCapital),
+          targetGeography: profile.targetGeography,
+          investmentTimeline: profile.investmentTimeline,
+          profitGoal: parseFloat(profile.profitGoal)
+        }
+      });
+    }
 
-    console.log('✅ Profile saved to database AND AI service');
+    console.log('✅ Profile saved to database successfully');
+    
+    // Only send to AI service if it's configured
+    if (AI_SERVICE_URL) {
+      try {
+        await axios.post(
+          `${AI_SERVICE_URL}/api/onboarding`,
+          { userId: req.user.id, profile },
+          {
+            headers: {
+              'Authorization': `Bearer ${INTERNAL_API_SECRET}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          }
+        );
+        console.log('✅ Profile also sent to AI service');
+      } catch (aiError) {
+        console.warn('⚠️ AI service sync failed (non-critical):', aiError.message);
+        // Don't fail the whole request if AI service is down
+      }
+    }
+
     res.json({ success: true, message: 'Profile saved successfully' });
   } catch (error) {
-    console.error('❌ Onboarding error:', error);
+    console.error('❌ Onboarding error:', error.message);
+    console.error('Full error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to save profile'
+      error: error.message || 'Failed to save profile'
     });
   }
 });
