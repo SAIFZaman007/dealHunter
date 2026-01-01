@@ -52,7 +52,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your backend URL
+    allow_origins=[
+        "https://deal-hunter-delta.vercel.app",
+        "https://jessewilliamnew-server.mtscorporate.com",
+        "http://localhost:5173",  # For local dev
+        "*" 
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,8 +99,7 @@ async def root():
     }
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint"""
+async def health():
     return {
         "status": "HEALTHY",
         "service": "AI-Service",

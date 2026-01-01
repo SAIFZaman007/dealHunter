@@ -316,6 +316,8 @@ const DealHunterChat = () => {
             <div className="flex space-x-3">
               <input
                 type="text"
+                id="chat-input" 
+                name="message"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Describe your investment criteria or ask for market analysis..."
