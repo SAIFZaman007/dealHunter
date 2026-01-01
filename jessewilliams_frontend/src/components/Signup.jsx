@@ -46,14 +46,10 @@ const Signup = ({ onSignupComplete }) => {
     setError('');
 
     try {
-      const response = await authClient.post('/ai/onboarding', 
-      { profile: formData },
-      {
-      headers: {
-      'Content-Type': 'application/json'
-    }
-  }
-);
+      const response = await authClient.post('/auth/verify-otp', {
+        email: formData.email,
+        otp: formData.otp
+      });
 
       if (response.data.success) {
         // Store token
