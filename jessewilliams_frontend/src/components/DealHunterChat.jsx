@@ -4,6 +4,7 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { API_BASE_URL } from '../config/api';
 
 const DealHunterChat = () => {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ const DealHunterChat = () => {
       // Create abort controller for cancellation
       abortControllerRef.current = new AbortController();
 
-      const response = await fetch('http://localhost:3000/api/ai/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

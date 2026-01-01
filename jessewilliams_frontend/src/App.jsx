@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
+import { authClient } from './services/apiClient';
 
 import Signup from './components/Signup';
 import Login from './components/Login';
@@ -57,12 +57,7 @@ function App() {
 
       // Logged in → check if profile exists
       try {
-        const response = await axios.get(
-          'http://localhost:3000/api/profile/check',
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
+        const response = await authClient.get('/profile/check');
 
         setAuthState({
           isAuthenticated: true,

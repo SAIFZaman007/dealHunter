@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { authClient } from '../services/apiClient';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,9 +18,9 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/login', {
-        email: formData.email,
-        password: formData.password
+      const response = await authClient.post('/auth/login', {
+      email: formData.email,
+      password: formData.password
       });
 
       if (response.data.success) {

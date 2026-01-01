@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { authClient } from '../services/apiClient';
 
 const OnboardingForm = () => {
   const navigate = useNavigate();
@@ -29,15 +29,9 @@ const OnboardingForm = () => {
         throw new Error('No authentication token found. Please log in.');
       }
 
-      const response = await axios.post(
-        'http://localhost:3000/api/ai/onboarding',
-        { profile: formData },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      const response = await authClient.post(
+        '/ai/onboarding',
+        { profile: formData }
       );
       
       console.log('Onboarding success:', response.data);

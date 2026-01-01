@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { authClient } from '../services/apiClient';
 
 const Signup = ({ onSignupComplete }) => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ const Signup = ({ onSignupComplete }) => {
     setSuccess('');
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/register', {
+      const response = await authClient.post('/auth/register', {
         email: formData.email,
         password: formData.password,
         fullName: formData.fullName
@@ -45,10 +46,14 @@ const Signup = ({ onSignupComplete }) => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/verify-otp', {
-        email: formData.email,
-        otp: formData.otp
-      });
+      const response = await authClient.post('/ai/onboarding', 
+      { profile: formData },
+      {
+      headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+);
 
       if (response.data.success) {
         // Store token
@@ -78,7 +83,7 @@ const Signup = ({ onSignupComplete }) => {
     setSuccess('');
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/resend-otp', {
+      const response = await authClient.post('/auth/resend-otp', {
         email: formData.email
       });
 
