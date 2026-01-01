@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { API_BASE_URL } from '../config/api';
+import { aiClient, API_BASE_URL } from '../services/apiClient';
 
 const DealHunterChat = () => {
   const navigate = useNavigate();
@@ -59,7 +58,8 @@ const DealHunterChat = () => {
       // Create abort controller for cancellation
       abortControllerRef.current = new AbortController();
 
-      const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+      // ✅ FIXED: Remove /api prefix since API_BASE_URL already includes it
+      const response = await fetch(`${API_BASE_URL}/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +74,8 @@ const DealHunterChat = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       // Remove status message
@@ -141,11 +142,11 @@ const DealHunterChat = () => {
         return;
       }
 
-      console.error('Error:', error);
+      console.error('Error in sendMessage:', error);
       setMessages(prev =>
         prev.filter(m => !m.isStatus).concat({
           role: 'assistant',
-          content: 'I apologize, but I encountered an error processing your request. Please try again or rephrase your question.'
+          content: `I apologize, but I encountered an error: ${error.message}. Please try again or rephrase your question.`
         })
       );
     } finally {
