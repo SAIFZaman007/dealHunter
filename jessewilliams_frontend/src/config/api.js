@@ -7,9 +7,9 @@
 
 let baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// if (!baseUrl.includes('/api')) {
-//   baseUrl = baseUrl.replace(/\/$/, '') + '/api';
-// }
+if (!baseUrl.includes('/api')) {
+  baseUrl = baseUrl.replace(/\/$/, '') + '/api';
+}
 
 const API_BASE_URL = baseUrl;
 const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
