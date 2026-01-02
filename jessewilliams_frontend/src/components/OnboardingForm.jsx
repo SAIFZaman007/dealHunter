@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authClient } from '../services/apiClient';
 
-const OnboardingForm = () => {
+const OnboardingForm = ({ onComplete = async () => {} }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     propertyType: '',
@@ -18,43 +18,48 @@ const OnboardingForm = () => {
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authentication token found. Please log in.');
-      }
-
-      const response = await authClient.post(
-        '/ai/onboarding',
-        { profile: formData }
-      );
-      
-      console.log('Onboarding success:', response.data);
-      
-      if (response.data.success) {
-        // Navigate to chat after successful onboarding
-        navigate('/chat');
-      } else {
-        throw new Error('Onboarding failed');
-      }
-      
-    } catch (error) {
-      console.error('Error:', error.response?.data || error.message);
-      setError(
-        error.response?.data?.error 
-        || error.response?.data?.detail 
-        || error.message 
-        || 'Failed to save profile'
-      );
-    } finally {
-      setLoading(false);
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please log in.');
     }
-  };
+
+    const response = await authClient.post(
+      '/ai/onboarding',
+      { profile: formData }
+    );
+    
+    console.log('Onboarding success:', response.data);
+    
+    if (response.data.success) {
+      //Call onComplete callback to refresh auth state in App.jsx
+      if (onComplete) {
+        await onComplete(); // Wait for auth state to refresh
+      }
+      
+      // Then navigate to chat
+      navigate('/chat');
+    } else {
+      throw new Error('Onboarding failed');
+    }
+    
+  } catch (error) {
+    console.error('Error:', error.response?.data || error.message);
+    setError(
+      error.response?.data?.error 
+      || error.response?.data?.detail 
+      || error.message 
+      || 'Failed to save profile'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12">

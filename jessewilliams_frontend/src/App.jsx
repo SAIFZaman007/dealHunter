@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { authClient } from './services/apiClient';
 
 import Signup from './components/Signup';
@@ -29,6 +29,27 @@ const PublicRoute = ({ children }) => {
 
   return children;
 };
+
+// Wrapper to handle root div styling based on route
+function AppContent() {
+  const location = useLocation();
+  const isChatRoute = location.pathname === '/chat';
+
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (root) {
+      if (isChatRoute) {
+        root.style.padding = '0';
+        root.style.maxWidth = '100%';
+      } else {
+        root.style.padding = '2rem';
+        root.style.maxWidth = '1280px';
+      }
+    }
+  }, [isChatRoute]);
+
+  return null;
+}
 
 function App() {
   const [authState, setAuthState] = useState({
@@ -75,8 +96,31 @@ function App() {
           loading: false
         });
       }
-    } finally {
-      // setLoading(false); is handled in catch/try blocks above
+    } catch (error) {
+      console.error('App initialization error:', error);
+      setAuthState({
+        isAuthenticated: false,
+        hasProfile: null,
+        loading: false
+      });
+    }
+  };
+
+  // ✅ NEW: Function to refresh profile status after onboarding/login
+  const refreshAuthState = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await authClient.get('/profile/check');
+      
+      setAuthState({
+        isAuthenticated: true,
+        hasProfile: response.data.hasProfile || false,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Failed to refresh auth state:', error);
     }
   };
 
@@ -89,13 +133,14 @@ function App() {
     });
   };
 
-  const handleOnboardingComplete = () => {
-    // After onboarding, user is ready for chat
-    setAuthState({
-      isAuthenticated: true,
-      hasProfile: true,
-      loading: false
-    });
+  const handleOnboardingComplete = async () => {
+    // ✅ FIXED: Refresh the auth state from server after onboarding
+    await refreshAuthState();
+  };
+
+  const handleLoginComplete = async () => {
+    // ✅ NEW: Refresh auth state after login
+    await refreshAuthState();
   };
 
   // ⏳ Show loading spinner during app initialization
@@ -114,6 +159,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <AppContent />
       <Routes>
         {/* ===== PUBLIC ROUTES ===== */}
 
@@ -144,7 +190,7 @@ function App() {
           path="/login" 
           element={
             <PublicRoute>
-              <Login />
+              <Login onLoginComplete={handleLoginComplete} />  
             </PublicRoute>
           } 
         />

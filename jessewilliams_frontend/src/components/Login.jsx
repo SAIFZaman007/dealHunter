@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 import { authClient } from '../services/apiClient';
 
-const Login = () => {
+const Login = ({ onLoginComplete }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
@@ -19,14 +18,24 @@ const Login = () => {
 
     try {
       const response = await authClient.post('/auth/login', {
-      email: formData.email,
-      password: formData.password
+        email: formData.email,
+        password: formData.password
       });
 
       if (response.data.success) {
         // Store token and user data
         localStorage.setItem('token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        
+        // ✅ FIXED: Refresh auth state before navigation (with safety checks)
+        if (onLoginComplete && typeof onLoginComplete === 'function') {
+          try {
+            await onLoginComplete();
+          } catch (refreshError) {
+            console.error('Error refreshing auth state:', refreshError);
+            // Continue to navigation even if refresh fails
+          }
+        }
         
         // Redirect to chat
         navigate('/chat');

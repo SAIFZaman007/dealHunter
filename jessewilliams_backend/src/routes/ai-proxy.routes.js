@@ -234,7 +234,7 @@ router.post('/chat', auth, async (req, res) => {
 router.get('/chat/status/:sessionId', auth, async (req, res) => {
   const { sessionId } = req.params;
 
-  // Track status in memory (you can enhance this with Redis/DB)
+  // Track status in memory
   res.json({
     status: 'processing',
     message: 'Searching the web and analyzing market data...'
