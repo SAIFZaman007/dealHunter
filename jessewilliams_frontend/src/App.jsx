@@ -106,7 +106,7 @@ function App() {
     }
   };
 
-  // ✅ NEW: Function to refresh profile status after onboarding/login
+  //Function to refresh profile status after onboarding/login
   const refreshAuthState = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -134,16 +134,16 @@ function App() {
   };
 
   const handleOnboardingComplete = async () => {
-    // ✅ FIXED: Refresh the auth state from server after onboarding
+    // Refresh the auth state from server after onboarding
     await refreshAuthState();
   };
 
   const handleLoginComplete = async () => {
-    // ✅ NEW: Refresh auth state after login
+    // Refresh auth state after login
     await refreshAuthState();
   };
 
-  // ⏳ Show loading spinner during app initialization
+  // Show loading spinner during app initialization
   if (authState.loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

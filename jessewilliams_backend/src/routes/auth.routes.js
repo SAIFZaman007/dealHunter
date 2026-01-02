@@ -21,7 +21,7 @@ router.get('/me', auth, authController.getMe);
 router.put('/update-profile', auth, authController.updateProfile);
 router.put('/change-password', auth, authController.changePassword);
 
-// ✅ NEW: Profile check endpoint
+// Profile check endpoint
 router.get('/profile/check', auth, async (req, res) => {
   try {
     const userProfile = await prisma.userProfile.findUnique({
