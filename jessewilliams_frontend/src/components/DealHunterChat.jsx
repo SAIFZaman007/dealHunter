@@ -35,145 +35,225 @@ const DealHunterChat = () => {
     setInput(starter);
   };
 
-  const sendMessage = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
-
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
-
-    // Status message
-    const statusMessage = {
-      role: 'assistant',
-      content: '🔍 Searching the web and analyzing market data...',
-      isStatus: true
-    };
-    setMessages(prev => [...prev, statusMessage]);
-
+  // ===================================================
+  // FILE DOWNLOAD HANDLER - DO NOT AUTO-DOWNLOAD
+  // ===================================================
+  const handleFileDownload = (fileData, fileName, mimeType) => {
     try {
-      const token = localStorage.getItem('token');
+      console.log('📥 Starting file download:', fileName);
       
-      // Create abort controller for cancellation
-      abortControllerRef.current = new AbortController();
-
-      // ✅ FIXED: Remove /api prefix since API_BASE_URL already includes it
-      const response = await fetch(`${API_BASE_URL}/ai/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          message: userMessage.content,
-          sessionId,
-          agentType: 'deal-hunter'
-        }),
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      // Decode base64 file data
+      const fileBytes = atob(fileData);
+      const byteArray = new Uint8Array(fileBytes.length);
+      
+      for (let i = 0; i < fileBytes.length; i++) {
+        byteArray[i] = fileBytes.charCodeAt(i);
       }
+      
+      // Create blob and download
+      const blob = new Blob([byteArray], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+      console.log('✅ File downloaded successfully');
+    } catch (error) {
+      console.error('❌ File download error:', error);
+      alert('Failed to download file. Please try again.');
+    }
+  };
 
+  const sendMessage = async (e) => {
+  e.preventDefault();
+  if (!input.trim() || loading) return;
+
+  const userMessage = { role: 'user', content: input };
+  setMessages(prev => [...prev, userMessage]);
+  setInput('');
+  setLoading(true);
+
+  // Status message
+  const statusMessage = {
+    role: 'assistant',
+    content: '🔍 Searching the web and analyzing market data...',
+    isStatus: true
+  };
+  setMessages(prev => [...prev, statusMessage]);
+
+  try {
+    const token = localStorage.getItem('token');
+    
+    // Abort controller for cancellation
+    abortControllerRef.current = new AbortController();
+
+    const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        message: userMessage.content,
+        sessionId,
+        agentType: 'deal-hunter'
+      }),
+      signal: abortControllerRef.current.signal
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    // Check Content-Type to determine response type
+    const contentType = response.headers.get('content-type');
+    
+    // ============================================
+    // FILE GENERATION RESPONSE (JSON)
+    // ============================================
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      
       // Remove status message
       setMessages(prev => prev.filter(m => !m.isStatus));
       setLoading(false);
-      setStreaming(true);
 
-      // Add empty assistant message for streaming
-      const assistantMessageIndex = messages.length + 1; // +1 for user message
-      setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true }]);
+      // Add assistant's text response
+      if (data.response) {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: data.response 
+        }]);
+      }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedText = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
+      // ============================================
+      // SHOW DOWNLOAD LINK (NO AUTO-DOWNLOAD)
+      // ============================================
+      if (data.fileGenerated && data.file) {
+        console.log('📄 File received, showing download button...');
         
-        if (done) break;
+        // Add file download message with button
+        const fileMessage = {
+          role: 'assistant',
+          content: '', // Empty content - will render as download card
+          isFile: true,
+          fileData: data.file.data,
+          fileName: data.file.name,
+          mimeType: data.file.mimeType
+        };
+        
+        setMessages(prev => [...prev, fileMessage]);
+      }
+      
+      return;
+    }
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+    // ============================================
+    // STREAMING TEXT RESPONSE (SSE)
+    // ============================================
+    // Remove status message
+    setMessages(prev => prev.filter(m => !m.isStatus));
+    setLoading(false);
+    setStreaming(true);
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                accumulatedText += parsed.content;
-                
-                // Update the streaming message
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  const lastMessage = newMessages[newMessages.length - 1];
-                  if (lastMessage.streaming) {
-                    lastMessage.content = accumulatedText;
-                  }
-                  return newMessages;
-                });
-              }
-            } catch (e) {
-              console.error('Parse error:', e);
+    // Add empty assistant message for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true }]);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              accumulatedText += parsed.content;
+              
+              // Update the streaming message
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.streaming) {
+                  lastMessage.content = accumulatedText;
+                }
+                return newMessages;
+              });
             }
+          } catch (e) {
+            console.error('Parse error:', e);
           }
         }
       }
-
-      // Finalize the message
-      setMessages(prev => {
-        const newMessages = [...prev];
-        const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage.streaming) {
-          delete lastMessage.streaming;
-        }
-        return newMessages;
-      });
-
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('Request cancelled');
-        return;
-      }
-
-      console.error('Error in sendMessage:', error);
-      
-      let errorMessage = 'I apologize, but I encountered an error. Please try again.';
-      
-      // Provide more specific error messages
-      if (error.message.includes('503')) {
-        errorMessage = 'The AI service is temporarily unavailable. Please try again in a few moments.';
-      } else if (error.message.includes('504')) {
-        errorMessage = 'The request timed out. Please try again with a shorter query.';
-      } else if (error.message.includes('needsOnboarding')) {
-        errorMessage = 'Please complete your profile setup before chatting.';
-        setTimeout(() => navigate('/onboarding'), 2000);
-      } else if (error.message.includes('401') || error.message.includes('403')) {
-        errorMessage = 'Your session has expired. Please log in again.';
-        setTimeout(() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login');
-        }, 2000);
-      }
-      
-      setMessages(prev =>
-        prev.filter(m => !m.isStatus).concat({
-          role: 'assistant',
-          content: errorMessage
-        })
-      );
-    } finally {
-      setLoading(false);
-      setStreaming(false);
     }
-  };
+
+    // Finalize the message
+    setMessages(prev => {
+      const newMessages = [...prev];
+      const lastMessage = newMessages[newMessages.length - 1];
+      if (lastMessage.streaming) {
+        delete lastMessage.streaming;
+      }
+      return newMessages;
+    });
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Request cancelled');
+      return;
+    }
+
+    console.error('Error in sendMessage:', error);
+    
+    let errorMessage = 'I apologize, but I encountered an error. Please try again.';
+    
+    // Provide more specific error messages
+    if (error.message.includes('503')) {
+      errorMessage = 'The AI service is temporarily unavailable. Please try again in a few moments.';
+    } else if (error.message.includes('504')) {
+      errorMessage = 'The request timed out. Please try again with a shorter query.';
+    } else if (error.message.includes('needsOnboarding')) {
+      errorMessage = 'Please complete your profile setup before chatting.';
+      setTimeout(() => navigate('/onboarding'), 2000);
+    } else if (error.message.includes('401') || error.message.includes('403')) {
+      errorMessage = 'Your session has expired. Please log in again.';
+      setTimeout(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+      }, 2000);
+    }
+    
+    setMessages(prev =>
+      prev.filter(m => !m.isStatus).concat({
+        role: 'assistant',
+        content: errorMessage
+      })
+    );
+  } finally {
+    setLoading(false);
+    setStreaming(false);
+  }
+};
 
   const handleLogout = () => {
     // Clear localStorage
@@ -196,7 +276,7 @@ const DealHunterChat = () => {
             <div>
               <h1 className="text-xl font-semibold text-gray-900">Deal Hunter</h1>
               <p className="text-sm text-gray-500">
-                Real Estate Investment Analyst • GPT-4
+                Real Estate Investment Analyst • GPT-5.2
               </p>
             </div>
           </div>
@@ -264,10 +344,43 @@ const DealHunterChat = () => {
                     ? 'bg-blue-600 text-white rounded-2xl px-5 py-3 text-left'
                     : msg.isStatus
                     ? 'bg-gray-50 text-gray-600 italic border border-gray-200 rounded-2xl px-5 py-3 text-left'
+                    : msg.isFile
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl px-6 py-5 text-left shadow-md'
                     : 'bg-white text-gray-900'
                 }`}
               >
-                {msg.role === 'user' || msg.isStatus ? (
+                {/* ============================================ */}
+                {/* FILE DOWNLOAD CARD */}
+                {/* ============================================ */}
+                {msg.isFile ? (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-14 h-14 bg-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <span className="text-white text-3xl">📄</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-base font-bold text-gray-900 mb-1">
+                        ✅ File Ready for Download
+                      </p>
+                      <p className="text-xs text-gray-600 mb-3">
+                        <span className="font-semibold">{msg.fileName}</span>
+                        <span className="text-gray-400 ml-2">
+                          ({(atob(msg.fileData).length / 1024).toFixed(1)} KB)
+                        </span>
+                      </p>
+                      <button
+                        onClick={() => handleFileDownload(msg.fileData, msg.fileName, msg.mimeType)}
+                        className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 text-sm flex items-center space-x-2 shadow-sm hover:shadow-md"
+                      >
+                        <span>⬇️</span>
+                        <span>
+                          Download {msg.fileName.includes('xlsx') ? 'Spreadsheet' : msg.fileName.includes('docx') ? 'Document' : msg.fileName.includes('pptx') ? 'Presentation' : 'File'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : msg.role === 'user' || msg.isStatus ? (
                   <p className="text-sm leading-relaxed text-left">{msg.content}</p>
                 ) : (
                   <div className="prose prose-sm max-w-none text-left" style={{ textAlign: 'left' }}>

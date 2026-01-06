@@ -108,7 +108,7 @@ router.post('/onboarding', auth, async (req, res) => {
 
 /**
  * =====================================================
- * CHAT ENDPOINT WITH STREAMING - FETCH PROFILE FROM DATABASE
+ * CHAT ENDPOINT WITH STREAMING AND FILE GENERATION
  * =====================================================
  */
 router.post('/chat', auth, async (req, res) => {
@@ -135,12 +135,6 @@ router.post('/chat', auth, async (req, res) => {
         needsOnboarding: true
       });
     }
-
-    // Set headers for SSE streaming
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
     try {
       // Make request to AI service
@@ -170,6 +164,37 @@ router.post('/chat', auth, async (req, res) => {
         }
       );
 
+      // ============================================
+      // CHECK IF FILE WAS GENERATED
+      // ============================================
+      if (response.data.fileGenerated && response.data.file) {
+        console.log('📄 File generated, returning JSON response');
+        
+        // Return JSON response with file data
+        return res.json({
+          success: true,
+          response: response.data.response,
+          sessionId,
+          fileGenerated: true,
+          file: {
+            name: response.data.file.name,
+            data: response.data.file.data, // base64
+            mimeType: response.data.file.mimeType
+          }
+        });
+      }
+
+      // ============================================
+      // STREAM TEXT RESPONSE
+      // ============================================
+      console.log('💬 Streaming text response');
+      
+      // Set headers for SSE streaming
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
       // Get the full response
       const fullResponse = response.data.response;
 
@@ -196,7 +221,15 @@ router.post('/chat', auth, async (req, res) => {
     } catch (error) {
       console.error('❌ AI Service error:', error.response?.data || error.message);
       
-      // Send error message as stream
+      // Only send JSON error if headers not sent yet
+      if (!res.headersSent) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to process message'
+        });
+      }
+      
+      // If streaming already started, send error in stream format
       res.write(`data: ${JSON.stringify({ 
         error: 'Failed to process message',
         content: 'I apologize, but I encountered an error. Please try again.'

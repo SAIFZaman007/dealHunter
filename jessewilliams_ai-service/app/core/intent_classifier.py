@@ -1,83 +1,95 @@
-"""
-Intent Classification System for Real Estate Investment Assistant
-"""
+"""Enhanced Intent Classification with Greeting Detection"""
 
 import re
 from typing import Dict, List, Tuple
 
 class IntentClassifier:
-    """Classifies user queries into one of three agent types"""
+    """Classifies user queries with proper greeting handling"""
     
-    # Intent patterns and keywords
+    # Greeting patterns
+    GREETINGS = [
+        'hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon',
+        'good evening', 'howdy', 'hola', 'bonjour', 'sup', 'yo', 'whats up',
+        "what's up", 'how are you', 'hows it going', "how's it going"
+    ]
+    
+    # Intent patterns
     INTENTS = {
         'deal_hunter': {
             'keywords': [
                 'find', 'search', 'locate', 'properties', 'deals', 'opportunities',
-                'market', 'neighborhood', 'area', 'strategy', 'plan', 'invest',
-                'flip', 'rental', 'buy', 'acquire', 'portfolio', 'target',
-                'where', 'what areas', 'which neighborhoods', 'best deals',
-                'good investment', 'profitable', 'undervalued'
+                'market', 'neighborhood', 'strategy', 'plan', 'invest', 'build',
+                'flip', 'rental', 'buy', 'acquire', 'portfolio', 'land', 'commercial',
+                'residential', 'starting', 'capital', 'target', 'county', 'city'
             ],
             'patterns': [
                 r'find.*propert(y|ies)',
-                r'search.*deal',
-                r'looking for.*investment',
-                r'where (should|can) i (invest|buy)',
-                r'what (areas?|neighborhoods?|markets?)',
-                r'build.*plan',
+                r'search.*(deal|land|home|propert)',
+                r'build.*(plan|strategy)',
+                r'start(ing)?\s*\$?\d+',
+                r'(travis|orange|miami|austin|county)',
+                r'low.capital',
                 r'create.*strategy',
-                r'\$\d+.*capital',
-                r'start(ing)? with \$'
+                r'compare.*plan',
+                r'(land|residential|commercial)\s*(real\s*estate)?'
             ]
         },
         
         'underwriting_analyzer': {
             'keywords': [
                 'analyze', 'analysis', 'calculate', 'roi', 'cash flow', 'return',
-                'numbers', 'profit', 'cap rate', 'noi', 'expenses', 'income',
-                'revenue', 'costs', 'budget', 'financial', 'pro forma',
-                'worth', 'value', 'appraisal', 'assumptions', 'projections',
-                'break even', 'irr', 'dscr', 'ltv', 'arv'
+                'profit', 'cap rate', 'noi', 'expenses', 'income', 'financial',
+                'worth', 'value', 'underwrite', 'numbers', 'crunch', 'arv'
             ],
             'patterns': [
                 r'analyz(e|ing)',
                 r'calculat(e|ing)',
-                r'cash flow',
-                r'roi|return on investment',
+                r'cash\s*flow',
+                r'roi|return\s*on\s*investment',
                 r'what.*profit',
-                r'how much.*make',
-                r'worth.*invest(ing|ment)',
+                r'how\s*much.*make',
+                r'worth.*invest',
                 r'financial.*analysis',
-                r'break.*even',
-                r'\$\d+.*arv',
-                r'cap rate',
-                r'net operating income'
+                r'cap\s*rate',
+                r'underwrite'
             ]
         },
         
         'offer_outreach': {
             'keywords': [
                 'write', 'draft', 'create', 'generate', 'letter', 'offer',
-                'loi', 'proposal', 'message', 'email', 'script', 'pitch',
-                'negotiate', 'deal structure', 'terms', 'contract', 'agreement',
-                'communicate', 'reach out', 'contact', 'present', 'seller',
-                'buyer', 'template', 'format'
+                'loi', 'proposal', 'email', 'script', 'document', 'template',
+                'excel', 'word', 'powerpoint', 'spreadsheet', 'presentation',
+                'download', 'export', 'file'
             ],
             'patterns': [
-                r'write.*letter',
-                r'draft.*offer',
-                r'create.*loi',
-                r'generate.*script',
-                r'help.*write',
-                r'how (should|do) i (write|draft|present)',
-                r'seller.*message',
-                r'outreach.*script',
-                r'negotiat(e|ion).*terms',
-                r'structure.*deal',
-                r'present.*offer'
+                r'write.*(letter|offer|loi)',
+                r'draft.*(offer|proposal)',
+                r'create.*(document|file|excel|word)',
+                r'generate.*(spreadsheet|presentation)',
+                r'(excel|word|powerpoint|pptx|xlsx|docx)',
+                r'(download|export).*file',
+                r'make.*(excel|spreadsheet|document)'
             ]
         }
     }
+    
+    def is_greeting(self, message: str) -> bool:
+        """Check if message is just a greeting"""
+        message_clean = message.lower().strip().rstrip('!.?')
+        
+        # Exact match greetings
+        if message_clean in self.GREETINGS:
+            return True
+        
+        # Check if message is ONLY greetings (no other words)
+        words = message_clean.split()
+        if len(words) <= 3:  # Short messages
+            for greeting in self.GREETINGS:
+                if greeting in message_clean:
+                    return True
+        
+        return False
     
     def classify(self, message: str) -> Tuple[str, float, Dict]:
         """
@@ -86,6 +98,11 @@ class IntentClassifier:
         Returns:
             (intent_name, confidence_score, metadata)
         """
+        
+        # Check for greeting first
+        if self.is_greeting(message):
+            return 'greeting', 1.0, {'reason': 'greeting_detected'}
+        
         message_lower = message.lower()
         scores = {}
         
@@ -103,7 +120,7 @@ class IntentClassifier:
             
             # Check patterns (higher weight)
             for pattern in config['patterns']:
-                if re.search(pattern, message_lower):
+                if re.search(pattern, message_lower, re.IGNORECASE):
                     score += 3
                     matched_patterns.append(pattern)
             
@@ -115,7 +132,7 @@ class IntentClassifier:
         
         # Determine winner
         if all(s['score'] == 0 for s in scores.values()):
-            # Default to deal_hunter if no matches
+            # No clear intent - default to deal_hunter
             return 'deal_hunter', 0.5, {'reason': 'default'}
         
         winner = max(scores.items(), key=lambda x: x[1]['score'])
@@ -127,58 +144,9 @@ class IntentClassifier:
         confidence = max_score / total_score if total_score > 0 else 0.5
         
         metadata = {
-            'matched_keywords': winner[1]['keywords'],
-            'matched_patterns': winner[1]['patterns'],
+            'matched_keywords': winner[1]['keywords'][:5],
+            'matched_patterns': winner[1]['patterns'][:3],
             'all_scores': {k: v['score'] for k, v in scores.items()}
         }
         
         return intent_name, confidence, metadata
-    
-    def get_agent_greeting(self, intent: str) -> str:
-        """Get appropriate greeting for each agent"""
-        greetings = {
-            'deal_hunter': [
-                'Understood!',
-                'Got it!',
-                'Perfect!',
-                'Excellent!',
-                'Acknowledged!'
-            ],
-            'underwriting_analyzer': [
-                'Analyzing now!',
-                'Let me crunch those numbers!',
-                'Running the analysis!',
-                'Calculating!',
-                'On it!'
-            ],
-            'offer_outreach': [
-                'Drafting now!',
-                'Creating that for you!',
-                'Writing it up!',
-                'Generating!',
-                'On it!'
-            ]
-        }
-        
-        import random
-        return random.choice(greetings.get(intent, ['Understood!']))
-
-
-# Example usage
-if __name__ == '__main__':
-    classifier = IntentClassifier()
-    
-    test_queries = [
-        "Find me fix-and-flip properties under $200k in Austin",
-        "Calculate the ROI on a $300k rental property",
-        "Write a letter of intent for a commercial property",
-        "What neighborhoods should I target for flips?",
-        "Analyze the cash flow on this deal",
-        "Help me draft an offer letter"
-    ]
-    
-    for query in test_queries:
-        intent, confidence, meta = classifier.classify(query)
-        print(f"\nQuery: {query}")
-        print(f"Intent: {intent} (confidence: {confidence:.2f})")
-        print(f"Matched: {meta['matched_keywords'][:3]}")

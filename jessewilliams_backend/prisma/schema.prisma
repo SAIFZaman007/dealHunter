@@ -104,7 +104,7 @@ model GptProduct {
   order       Int     @default(0) 
   
   
-  gptModel    String  @default("gpt-4") 
+  gptModel    String  @default("gpt-5.2") 
   systemPrompt String @db.Text
   
   createdAt   DateTime @default(now())

@@ -53,7 +53,7 @@ async function main() {
         'ROI calculator'
       ],
       icon: '🏠',
-      gptModel: 'gpt-4',
+      gptModel: 'gpt-5.2',
       systemPrompt: 'You are a real estate investment expert specializing in finding and analyzing profitable deals. Help users identify opportunities, analyze properties, and make informed investment decisions.',
       isFeatured: true,
       order: 1
@@ -78,7 +78,7 @@ async function main() {
         'Sensitivity analysis'
       ],
       icon: '📊',
-      gptModel: 'gpt-4',
+      gptModel: 'gpt-5.2',
       systemPrompt: 'You are a financial analyst specializing in real estate underwriting. Help users perform detailed financial analysis, calculate returns, and validate investment assumptions.',
       isFeatured: false,
       order: 2
@@ -103,7 +103,7 @@ async function main() {
         'Professional formatting'
       ],
       icon: '✉️',
-      gptModel: 'gpt-4',
+      gptModel: 'gpt-5.2',
       systemPrompt: 'You are a real estate communications expert. Help users create professional letters of intent, seller messages, and outreach scripts for real estate deals.',
       isFeatured: false,
       order: 3
