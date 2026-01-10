@@ -607,7 +607,7 @@ class FileGenerationService:
         output.seek(0)
         
         location_slug = data.get('location', 'analysis').replace(' ', '_').replace(',', '')
-        filename = f"Deal_Pipeline_{location_slug}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        filename = f"Deal_Pipeline_{location_slug}_{datetime.now()}.xlsx"
         return output.read(), filename
     
     # Word and PowerPoint generators remain similar but pull from real data
