@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     
     print(f"✅ Ready on http://localhost:8000")
     print(f"🔒 Auth: {'Configured' if os.getenv('INTERNAL_API_SECRET') else 'Missing'}")
-    print(f"🤖 LLM: OpenAI GPT-4o-mini")
+    print(f"✴ LLM: OpenAI GPT-4o-mini")
     print(f"📁 File Generation: Enabled\n")
     
     yield
