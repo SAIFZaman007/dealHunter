@@ -346,7 +346,7 @@ const DealHunterChat = () => {
                     ? 'bg-gray-50 text-gray-600 italic border border-gray-200 rounded-2xl px-5 py-3 text-left'
                     : msg.isFile
                     ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl px-6 py-5 text-left shadow-md'
-                    : 'bg-white text-gray-900'
+                    : 'bg-white text-gray-900 border border-gray-100 rounded-2xl px-6 py-4 shadow-sm'
                 }`}
               >
                 {/* ============================================ */}
@@ -383,8 +383,62 @@ const DealHunterChat = () => {
                 ) : msg.role === 'user' || msg.isStatus ? (
                   <p className="text-sm leading-relaxed text-left">{msg.content}</p>
                 ) : (
-                  <div className="prose prose-sm max-w-none text-left" style={{ textAlign: 'left' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <div className="chat-message-content">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        // Headings with proper styling
+                        h1: ({node, ...props}) => <h1 className="text-xl font-bold text-gray-900 mt-4 mb-3 first:mt-0" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-lg font-bold text-gray-900 mt-4 mb-2 first:mt-0" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-base font-bold text-gray-900 mt-3 mb-2 first:mt-0" {...props} />,
+                        h4: ({node, ...props}) => <h4 className="text-sm font-bold text-gray-900 mt-3 mb-2 first:mt-0" {...props} />,
+                        
+                        // Paragraphs with spacing
+                        p: ({node, ...props}) => <p className="text-sm leading-relaxed text-gray-800 mb-3 last:mb-0" {...props} />,
+                        
+                        // Ordered lists
+                        ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-5 mb-4 space-y-2" {...props} />,
+                        
+                        // Unordered lists
+                        ul: ({node, ...props}) => <ul className="list-disc list-outside ml-5 mb-4 space-y-2" {...props} />,
+                        
+                        // List items
+                        li: ({node, ...props}) => <li className="text-sm leading-relaxed text-gray-800 pl-1" {...props} />,
+                        
+                        // Strong (bold) text
+                        strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                        
+                        // Emphasis (italic) text
+                        em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
+                        
+                        // Code blocks
+                        code: ({node, inline, ...props}) => 
+                          inline 
+                            ? <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
+                            : <code className="block bg-gray-100 text-gray-800 p-3 rounded-lg text-xs font-mono overflow-x-auto mb-3" {...props} />,
+                        
+                        // Blockquotes
+                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 py-2 mb-4 italic text-gray-700" {...props} />,
+                        
+                        // Links
+                        a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-700 underline" {...props} />,
+                        
+                        // Horizontal rules
+                        hr: ({node, ...props}) => <hr className="border-gray-300 my-4" {...props} />,
+                        
+                        // Tables
+                        table: ({node, ...props}) => (
+                          <div className="overflow-x-auto mb-4">
+                            <table className="min-w-full border-collapse border border-gray-300" {...props} />
+                          </div>
+                        ),
+                        thead: ({node, ...props}) => <thead className="bg-gray-100" {...props} />,
+                        tbody: ({node, ...props}) => <tbody {...props} />,
+                        tr: ({node, ...props}) => <tr className="border-b border-gray-300" {...props} />,
+                        th: ({node, ...props}) => <th className="border border-gray-300 px-4 py-2 text-left text-sm font-bold text-gray-900" {...props} />,
+                        td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-sm text-gray-800" {...props} />,
+                      }}
+                    >
                       {msg.content}
                     </ReactMarkdown>
                     {msg.streaming && (

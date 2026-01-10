@@ -1,9 +1,171 @@
 @import "tailwindcss";
 
+/* ===================================================
+   GLOBAL TYPOGRAPHY SETTINGS
+   ================================================== */
+
+/* Base typography for better readability */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* Ensure consistent box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ===================================================
+   PROSE / MARKDOWN CONTENT - PROFESSIONAL FORMATTING
+   ================================================== */
+
+/* Override any default prose styles to ensure professional appearance */
 .prose {
   text-align: left !important;
+  max-width: none;
 }
 
 .prose * {
   text-align: left !important;
+}
+
+/* Headings in prose */
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-weight: 700;
+  color: #111827;
+  text-align: left !important;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child {
+  margin-top: 0;
+}
+
+/* Paragraphs in prose */
+.prose p {
+  margin-bottom: 0.75rem;
+  line-height: 1.7;
+  text-align: left !important;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists in prose */
+.prose ul,
+.prose ol {
+  margin-bottom: 1rem;
+  padding-left: 1.25rem;
+  text-align: left !important;
+}
+
+.prose li {
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+  text-align: left !important;
+}
+
+/* Bold text in prose */
+.prose strong,
+.prose b {
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Tables in prose */
+.prose table {
+  text-align: left !important;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.prose td,
+.prose th {
+  text-align: left !important;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+}
+
+.prose th {
+  font-weight: 700;
+  background-color: #f3f4f6;
+}
+
+/* ===================================================
+   SCROLLBAR STYLING (OPTIONAL - FOR POLISH)
+   ================================================== */
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* ===================================================
+   ANIMATION UTILITIES
+   ================================================== */
+
+/* Smooth transitions for interactive elements */
+button,
+a {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ===================================================
+   UTILITY CLASSES
+   ================================================== */
+
+/* Remove default button styles */
+.btn-reset {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Text ellipsis utility */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
