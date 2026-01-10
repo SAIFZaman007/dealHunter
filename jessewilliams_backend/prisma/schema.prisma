@@ -1,6 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
+// Prisma schema file,
 generator client {
   provider = "prisma-client-js"
 }
@@ -41,6 +39,11 @@ enum PlanDuration {
   ANNUAL
 }
 
+enum FeedbackRating {
+  GOOD
+  BAD
+}
+
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
@@ -59,8 +62,8 @@ model User {
   subscriptions UserSubscription[]
   orders        Order[]
   apiKeys       ApiKey[]
-
-  profile  UserProfile?
+  profile       UserProfile?
+  chatFeedback  ChatFeedback[]
   
   @@map("users")
 }
@@ -256,4 +259,35 @@ model ContactMessage {
   createdAt DateTime @default(now())
   
   @@map("contact_messages")
+}
+
+// ===================================================
+// CHAT FEEDBACK MODEL FOR RATINGS
+// ===================================================
+model ChatFeedback {
+  id              String         @id @default(uuid())
+  
+  // Chat context
+  sessionId       String         // Identifies the chat session
+  messageIndex    Int            // Which message in the conversation
+  userMessage     String         @db.Text  // Store the user's query
+  aiResponse      String         @db.Text  // Store the AI's response
+  
+  // Feedback
+  rating          FeedbackRating // GOOD or BAD
+  comment         String?        @db.Text  // Optional user comment (future feature)
+  
+  // Metadata
+  agentType       String?        // deal-hunter, etc.
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, sessionId])
+  @@index([rating, createdAt]) // For analytics
+  @@map("chat_feedback")
 }

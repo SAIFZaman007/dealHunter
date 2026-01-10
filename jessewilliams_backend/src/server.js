@@ -15,6 +15,7 @@ const contactRoutes = require('./routes/contact.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const aiProxyRoutes = require('./routes/ai-proxy.routes');
 const paymentController = require('./controllers/payment.controller');
+const feedbackRoutes = require('./routes/feedback.routes');
 
 // Import error handler
 const errorHandler = require('./middleware/errorHandler');
@@ -69,6 +70,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/ai', aiProxyRoutes);
+app.use('/api/ai', feedbackRoutes);
 
 // 404 handler
 app.use((req, res) => {
