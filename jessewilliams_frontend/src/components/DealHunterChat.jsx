@@ -152,7 +152,7 @@ const DealHunterChat = () => {
         });
       }
     } catch (error) {
-      console.error('âŒ Failed to save message:', error);
+      console.error('Failed to save message:', error);
     }
   };
 
@@ -225,7 +225,7 @@ const DealHunterChat = () => {
 
       console.log(`✅ Feedback saved: ${rating}`);
     } catch (error) {
-      console.error('âŒ Failed to save feedback:', error);
+      console.error('Failed to save feedback:', error);
       setMessages(prev => {
         const updated = [...prev];
         if (updated[messageIndex]) {
@@ -241,7 +241,7 @@ const DealHunterChat = () => {
   // ===================================================
   const handleFileDownload = (fileData, fileName, mimeType) => {
     try {
-      console.log('ðŸ“¥ Starting file download:', fileName);
+      console.log('Starting file download:', fileName);
       
       const fileBytes = atob(fileData);
       const byteArray = new Uint8Array(fileBytes.length);
@@ -264,7 +264,7 @@ const DealHunterChat = () => {
       
       console.log('✅ File downloaded successfully');
     } catch (error) {
-      console.error('âŒ File download error:', error);
+      console.error('File download error:', error);
       alert('Failed to download file. Please try again.');
     }
   };
@@ -323,38 +323,56 @@ const DealHunterChat = () => {
         setMessages(prev => prev.filter(m => !m.isStatus));
         setLoading(false);
 
-        if (data.response) {
-          // Save AI response to database
-          await saveMessageToDB(data.response, 'assistant');
+        if (data.response || (data.fileGenerated && data.file)) {
+           // Combine text response and file into ONE message
+           const combinedMessage = {
+           role: 'assistant',
+           content: data.response || '',
+           userMessage: userMessage.content,
+           // Add file data if present
+           ...(data.fileGenerated && data.file ? {
+           hasFile: true,
+           fileData: data.file.data,
+           fileName: data.file.name,
+           mimeType: data.file.mimeType
+         } : {})
+      };
 
-          setMessages(prev => [...prev, { 
-            role: 'assistant', 
-            content: data.response,
-            userMessage: userMessage.content
-          }]);
-        }
+      // Save to database
+      await saveMessageToDB(
+        data.response || '', 
+        'assistant',
+        data.fileGenerated && data.file ? {
+        data: data.file.data,
+        name: data.file.name,
+        mimeType: data.file.mimeType
+        } : null
+      );
+        setMessages(prev => [...prev, combinedMessage]);
+      }
+      
 
-        if (data.fileGenerated && data.file) {
-          console.log('📄 File received, showing download button...');
+        // if (data.fileGenerated && data.file) {
+        //   console.log('📄 File received, showing download button...');
           
-          const fileMessage = {
-            role: 'assistant',
-            content: '',
-            isFile: true,
-            fileData: data.file.data,
-            fileName: data.file.name,
-            mimeType: data.file.mimeType
-          };
+        //   const fileMessage = {
+        //     role: 'assistant',
+        //     content: '',
+        //     isFile: true,
+        //     fileData: data.file.data,
+        //     fileName: data.file.name,
+        //     mimeType: data.file.mimeType
+        //   };
 
-          // Save file info to database
-          await saveMessageToDB('', 'assistant', {
-            data: data.file.data,
-            name: data.file.name,
-            mimeType: data.file.mimeType
-          });
+        //   // Save file info to database
+        //   await saveMessageToDB('', 'assistant', {
+        //     data: data.file.data,
+        //     name: data.file.name,
+        //     mimeType: data.file.mimeType
+        //   });
           
-          setMessages(prev => [...prev, fileMessage]);
-        }
+        //   setMessages(prev => [...prev, fileMessage]);
+        // }
         
         return;
       }
@@ -650,207 +668,205 @@ const handleDeleteCurrentChat = async () => {
             )}
 
             {messages.map((msg, idx) => (
-              <div key={idx}>
-                <div
-                  className={`flex ${
-                    msg.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {msg.role === 'assistant' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mr-3 mt-1">
-                      <span className="text-white text-sm">✴</span>
+  <div key={idx}>
+    <div
+      className={`flex ${
+        msg.role === 'user' ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      {msg.role === 'assistant' && (
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mr-3 mt-1">
+          <span className="text-white text-sm">✴</span>
+        </div>
+      )}
+
+      <div className="flex-1 max-w-4xl">
+        {/* Main message content */}
+        <div
+          className={`${
+            msg.role === 'user'
+              ? 'bg-blue-600 text-white rounded-2xl px-5 py-3 text-left ml-auto max-w-3xl'
+              : msg.isStatus
+              ? 'bg-gray-50 text-gray-600 italic border border-gray-200 rounded-2xl px-5 py-3 text-left'
+              : 'bg-white text-gray-900 border border-gray-100 rounded-2xl px-6 py-4 shadow-sm'
+          }`}
+        >
+          {msg.role === 'user' || msg.isStatus ? (
+            <p className="text-sm leading-relaxed text-left">{msg.content}</p>
+          ) : (
+            <div className="chat-message-content">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-xl font-bold text-gray-900 mt-4 mb-3 first:mt-0" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-lg font-bold text-gray-900 mt-4 mb-2 first:mt-0" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-base font-bold text-gray-900 mt-3 mb-2 first:mt-0" {...props} />,
+                  h4: ({node, ...props}) => <h4 className="text-sm font-bold text-gray-900 mt-3 mb-2 first:mt-0" {...props} />,
+                  p: ({node, ...props}) => <p className="text-sm leading-relaxed text-gray-800 mb-3 last:mb-0" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-5 mb-4 space-y-2" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc list-outside ml-5 mb-4 space-y-2" {...props} />,
+                  li: ({node, ...props}) => <li className="text-sm leading-relaxed text-gray-800 pl-1" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                  em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
+                  code: ({node, inline, ...props}) => 
+                    inline 
+                      ? <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
+                      : <code className="block bg-gray-100 text-gray-800 p-3 rounded-lg text-xs font-mono overflow-x-auto mb-3" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 py-2 mb-4 italic text-gray-700" {...props} />,
+                  a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-700 underline" {...props} />,
+                  hr: ({node, ...props}) => <hr className="border-gray-300 my-4" {...props} />,
+                  table: ({node, ...props}) => (
+                    <div className="overflow-x-auto mb-4">
+                      <table className="min-w-full border-collapse border border-gray-300" {...props} />
                     </div>
-                  )}
+                  ),
+                  thead: ({node, ...props}) => <thead className="bg-gray-100" {...props} />,
+                  tbody: ({node, ...props}) => <tbody {...props} />,
+                  tr: ({node, ...props}) => <tr className="border-b border-gray-300" {...props} />,
+                  th: ({node, ...props}) => <th className="border border-gray-300 px-4 py-2 text-left text-sm font-bold text-gray-900" {...props} />,
+                  td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-sm text-gray-800" {...props} />,
+                }}
+              >
+                {msg.content}
+              </ReactMarkdown>
+              {msg.streaming && (
+                <span className="inline-block w-1 h-4 bg-blue-600 animate-pulse ml-1"></span>
+              )}
+            </div>
+          )}
+        </div>
 
-                  <div className="flex-1 max-w-4xl">
-                    <div
-                      className={`${
-                        msg.role === 'user'
-                          ? 'bg-blue-600 text-white rounded-2xl px-5 py-3 text-left ml-auto max-w-3xl'
-                          : msg.isStatus
-                          ? 'bg-gray-50 text-gray-600 italic border border-gray-200 rounded-2xl px-5 py-3 text-left'
-                          : msg.isFile
-                          ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl px-6 py-5 text-left shadow-md'
-                          : 'bg-white text-gray-900 border border-gray-100 rounded-2xl px-6 py-4 shadow-sm'
-                      }`}
-                    >
-                      {msg.isFile ? (
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="w-14 h-14 bg-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                              <span className="text-white text-3xl">📄</span>
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-base font-bold text-gray-900 mb-1">
-                              ✅ File Ready for Download
-                            </p>
-                            <p className="text-xs text-gray-600 mb-3">
-                              <span className="font-semibold">{msg.fileName}</span>
-                              <span className="text-gray-400 ml-2">
-                                ({(atob(msg.fileData).length / 1024).toFixed(1)} KB)
-                              </span>
-                            </p>
-                            <button
-                              onClick={() => handleFileDownload(msg.fileData, msg.fileName, msg.mimeType)}
-                              className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 text-sm flex items-center space-x-2 shadow-sm hover:shadow-md"
-                            >
-                              <span>⬇️</span>
-                              <span>
-                                Download {msg.fileName.includes('xlsx') ? 'Spreadsheet' : msg.fileName.includes('docx') ? 'Document' : msg.fileName.includes('pptx') ? 'Presentation' : 'File'}
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : msg.role === 'user' || msg.isStatus ? (
-                        <p className="text-sm leading-relaxed text-left">{msg.content}</p>
-                      ) : (
-                        <div className="chat-message-content">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              h1: ({node, ...props}) => <h1 className="text-xl font-bold text-gray-900 mt-4 mb-3 first:mt-0" {...props} />,
-                              h2: ({node, ...props}) => <h2 className="text-lg font-bold text-gray-900 mt-4 mb-2 first:mt-0" {...props} />,
-                              h3: ({node, ...props}) => <h3 className="text-base font-bold text-gray-900 mt-3 mb-2 first:mt-0" {...props} />,
-                              h4: ({node, ...props}) => <h4 className="text-sm font-bold text-gray-900 mt-3 mb-2 first:mt-0" {...props} />,
-                              p: ({node, ...props}) => <p className="text-sm leading-relaxed text-gray-800 mb-3 last:mb-0" {...props} />,
-                              ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-5 mb-4 space-y-2" {...props} />,
-                              ul: ({node, ...props}) => <ul className="list-disc list-outside ml-5 mb-4 space-y-2" {...props} />,
-                              li: ({node, ...props}) => <li className="text-sm leading-relaxed text-gray-800 pl-1" {...props} />,
-                              strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
-                              em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
-                              code: ({node, inline, ...props}) => 
-                                inline 
-                                  ? <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
-                                  : <code className="block bg-gray-100 text-gray-800 p-3 rounded-lg text-xs font-mono overflow-x-auto mb-3" {...props} />,
-                              blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 py-2 mb-4 italic text-gray-700" {...props} />,
-                              a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-700 underline" {...props} />,
-                              hr: ({node, ...props}) => <hr className="border-gray-300 my-4" {...props} />,
-                              table: ({node, ...props}) => (
-                                <div className="overflow-x-auto mb-4">
-                                  <table className="min-w-full border-collapse border border-gray-300" {...props} />
-                                </div>
-                              ),
-                              thead: ({node, ...props}) => <thead className="bg-gray-100" {...props} />,
-                              tbody: ({node, ...props}) => <tbody {...props} />,
-                              tr: ({node, ...props}) => <tr className="border-b border-gray-300" {...props} />,
-                              th: ({node, ...props}) => <th className="border border-gray-300 px-4 py-2 text-left text-sm font-bold text-gray-900" {...props} />,
-                              td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-sm text-gray-800" {...props} />,
-                            }}
-                          >
-                            {msg.content}
-                          </ReactMarkdown>
-                          {msg.streaming && (
-                            <span className="inline-block w-1 h-4 bg-blue-600 animate-pulse ml-1"></span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    {!msg.isStatus && !msg.isFile && !msg.streaming && (
-                      <div className={`flex items-center gap-1 mt-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start ml-11'}`}>
-                        {msg.role === 'user' && (
-                          <>
-                            <button
-                              onClick={() => handleEdit(msg.content)}
-                              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Edit message"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleRetry(msg.content)}
-                              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Retry message"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleCopy(msg.content, `user-${idx}`)}
-                              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Copy message"
-                            >
-                              {copiedIndex === `user-${idx}` ? (
-                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                              )}
-                            </button>
-                          </>
-                        )}
-
-                      {/* ASSISTANT MESSAGE ACTIONS */}
-                      {msg.role === 'assistant' && (
-                        <>
-                          <button
-                            onClick={() => handleCopy(msg.content, `assistant-${idx}`)}
-                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Copy response"
-                          >
-                            {copiedIndex === `assistant-${idx}` ? (
-                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                            )}
-                          </button>
-
-                          {/* Good Response (Thumbs Up) */}
-                          <button
-                            onClick={() => handleRating(idx, 'GOOD', msg.userMessage, msg.content)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              msg.rating === 'GOOD'
-                                ? 'text-green-600 bg-green-50 hover:bg-green-100'
-                                : 'text-gray-500 hover:text-green-600 hover:bg-gray-100'
-                            }`}
-                            title="Good response"
-                          >
-                            <svg className="w-4 h-4" fill={msg.rating === 'GOOD' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                            </svg>
-                          </button>
-
-                          {/* Bad Response (Thumbs Down) */}
-                          <button
-                            onClick={() => handleRating(idx, 'BAD', msg.userMessage, msg.content)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              msg.rating === 'BAD'
-                                ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                                : 'text-gray-500 hover:text-red-600 hover:bg-gray-100'
-                            }`}
-                            title="Bad response"
-                          >
-                            <svg className="w-4 h-4" fill={msg.rating === 'BAD' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
+        {/* File download section - INSIDE same message bubble */}
+        {msg.hasFile && msg.fileData && (
+          <div className="mt-3 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl px-6 py-5 shadow-md">
+            <div className="flex items-center space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-14 h-14 bg-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white text-3xl">📄</span>
                 </div>
               </div>
+              <div className="flex-1">
+                <p className="text-base text-left font-bold text-gray-900 mb-1">
+                  ✅ File Ready for Download
+                </p>
+                <p className="text-xs text-gray-600 mb-3 text-left">
+                  <span className="font-semibold">{msg.fileName}</span>
+                  <span className="text-gray-400 ml-2">
+                    ({(atob(msg.fileData).length / 1024).toFixed(1)} KB)
+                  </span>
+                </p>
+                <button
+                  onClick={() => handleFileDownload(msg.fileData, msg.fileName, msg.mimeType)}
+                  className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 text-sm flex items-center space-x-2 shadow-sm hover:shadow-md"
+                >
+                  <span>⬇️</span>
+                  <span>
+                    Download {msg.fileName.includes('xlsx') ? 'Spreadsheet' : msg.fileName.includes('docx') ? 'Document' : msg.fileName.includes('pptx') ? 'Presentation' : 'File'}
+                  </span>
+                </button>
+              </div>
             </div>
-          ))}
+          </div>
+        )}
+
+        {/* Action Buttons - AFTER everything */}
+        {!msg.isStatus && !msg.streaming && (
+          <div className={`flex items-center gap-1 mt-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start ml-11'}`}>
+            {msg.role === 'user' && (
+              <>
+                <button
+                  onClick={() => handleEdit(msg.content)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Edit message"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleRetry(msg.content)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Retry message"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleCopy(msg.content, `user-${idx}`)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Copy message"
+                >
+                  {copiedIndex === `user-${idx}` ? (
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+              </>
+            )}
+
+            {msg.role === 'assistant' && (
+              <>
+                <button
+                  onClick={() => handleCopy(msg.content, `assistant-${idx}`)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Copy response"
+                >
+                  {copiedIndex === `assistant-${idx}` ? (
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handleRating(idx, 'GOOD', msg.userMessage, msg.content)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    msg.rating === 'GOOD'
+                      ? 'text-green-600 bg-green-50 hover:bg-green-100'
+                      : 'text-gray-500 hover:text-green-600 hover:bg-gray-100'
+                  }`}
+                  title="Good response"
+                >
+                  <svg className="w-4 h-4" fill={msg.rating === 'GOOD' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={() => handleRating(idx, 'BAD', msg.userMessage, msg.content)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    msg.rating === 'BAD'
+                      ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                      : 'text-gray-500 hover:text-red-600 hover:bg-gray-100'
+                  }`}
+                  title="Bad response"
+                >
+                  <svg className="w-4 h-4" fill={msg.rating === 'BAD' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+))}
 
           {/* Loading indicator */}
           {loading && (
             <div className="flex items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mr-3">
-                <span className="text-white text-sm">✴</span>
-              </div>
               <div className="bg-gray-50 rounded-2xl px-5 py-4 border border-gray-200">
                 <div className="flex space-x-1.5">
                   <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>

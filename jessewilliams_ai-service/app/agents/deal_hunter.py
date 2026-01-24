@@ -15,7 +15,7 @@ from app.utils.formatters import ResponseFormatter
 
 # Import web search
 try:
-    from app.core.web_search import WebSearchClient
+    from app.core.web_search import GoogleCSEPropertySearch
     WEB_SEARCH_AVAILABLE = True
 except ImportError:
     WEB_SEARCH_AVAILABLE = False
@@ -32,7 +32,7 @@ class DealHunterAgent:
         self.context_manager = context_manager
         
         if WEB_SEARCH_AVAILABLE:
-            self.search_client = WebSearchClient()
+            self.search_client = GoogleCSEPropertySearch()
             print("✅ Deal Hunter Agent (Memory + Web Search) - Ready")
         else:
             self.search_client = None

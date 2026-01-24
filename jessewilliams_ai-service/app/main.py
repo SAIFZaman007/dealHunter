@@ -173,7 +173,7 @@ async def chat(
     """
     Handle chat with memory and intelligent file generation
     
-    CRITICAL FIX: Return JSON with base64-encoded file data instead of binary Response
+    Return JSON with base64-encoded file data instead of binary Response
     """
     try:
         # Store profile if provided
@@ -241,6 +241,10 @@ async def chat(
                 elif file_type == 'powerpoint':
                     file_content, filename = file_generation_service.generate_powerpoint(file_data)
                     media_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    
+                elif file_type == 'pdf':
+                   file_content, filename = file_generation_service.generate_pdf(file_data)
+                   media_type = "application/pdf"
                 
                 else:
                     raise ValueError(f"Unknown file type: {file_type}")
@@ -255,7 +259,7 @@ async def chat(
                 
                 return JSONResponse(content={
                     "success": True,
-                    "response": response_text,
+                    "response": concise_response,
                     "sessionId": request.sessionId,
                     "fileGenerated": True,
                     "file": {
