@@ -61,6 +61,86 @@ const registerUser = async ({ email, password, fullName }) => {
 };
 
 /**
+ * Auto-subscribe new user to Free plan
+ * Called after email verification
+ */
+const autoSubscribeFreePlan = async (userId) => {
+  try {
+    // 1. Find the Free plan
+    const freePlan = await prisma.subscriptionPlan.findFirst({
+      where: {
+        price: 0,
+        isActive: true,
+        name: {
+          contains: 'Free',
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (!freePlan) {
+      console.error('❌ Free plan not found! Skipping auto-subscription.');
+      return null;
+    }
+
+    // 2. Check if user already has a subscription
+    const existingSubscription = await prisma.userSubscription.findFirst({
+      where: {
+        userId,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (existingSubscription) {
+      console.log('ℹ️  User already has an active subscription, skipping Free plan');
+      return existingSubscription;
+    }
+
+    // 3. Calculate subscription dates
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    
+    if (freePlan.duration === 'MONTHLY') {
+      endDate.setMonth(endDate.getMonth() + 1);
+    } else if (freePlan.duration === 'ANNUAL') {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    } else {
+      // For Free plan with no expiry, set far future date
+      endDate.setFullYear(endDate.getFullYear() + 100);
+    }
+
+    // 4. Create Free plan subscription
+    const subscription = await prisma.userSubscription.create({
+      data: {
+        userId,
+        planId: freePlan.id,
+        status: 'ACTIVE',
+        startDate,
+        endDate,
+        requestsUsed: 0,
+        lastResetDate: startDate
+      },
+      include: {
+        plan: {
+          select: {
+            name: true,
+            maxRequests: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ Auto-subscribed user ${userId} to Free plan (${freePlan.maxRequests} tokens)`);
+    
+    return subscription;
+  } catch (error) {
+    console.error('❌ Error auto-subscribing to Free plan:', error);
+    // Don't throw - registration should still succeed even if auto-subscription fails
+    return null;
+  }
+};
+
+/**
  * Verify OTP and complete registration
  */
 const verifyOTP = async (email, otp) => {
@@ -100,6 +180,9 @@ const verifyOTP = async (email, otp) => {
       emailVerified: true
     }
   });
+
+  // AUTO-SUBSCRIBE TO FREE PLAN
+  await autoSubscribeFreePlan(verifiedUser.id);
 
   // Send welcome email
   await sendWelcomeEmail(email, verifiedUser.fullName || 'User');
@@ -170,6 +253,20 @@ const loginUser = async (email, password) => {
     throw new Error('Account is deactivated');
   }
 
+  // ENSURE USER HAS FREE PLAN (safety net)
+  // In case verification happened but subscription failed
+  const hasSubscription = await prisma.userSubscription.findFirst({
+    where: {
+      userId: user.id,
+      status: 'ACTIVE'
+    }
+  });
+
+  if (!hasSubscription) {
+    console.log('⚠️  User has no active subscription, auto-subscribing to Free plan...');
+    await autoSubscribeFreePlan(user.id);
+  }
+
   // Generate token
   const token = generateToken(user.id);
 
@@ -184,5 +281,6 @@ module.exports = {
   verifyOTP,
   resendOTP,
   loginUser,
-  generateToken
+  generateToken,
+  autoSubscribeFreePlan
 };

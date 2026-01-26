@@ -1,12 +1,15 @@
-// Subscription Check Middleware
-// Validates user has active subscription and sufficient credits
+/**
+ * Subscription Check Middleware
+ * Validates user has active subscription and sufficient credits
+ */
 
 const { canMakeRequest } = require('../services/subscription.service');
 const { estimateTokens } = require('../utils/tokenCounter');
 
-
-//  Check if user has active subscription and credits
-//  @param {number} estimatedTokens - Estimated tokens for the request (default: 1000)
+/**
+ * Check if user has active subscription and credits
+ * @param {number} estimatedTokens - Estimated tokens for the request (default: 1000)
+ */
 const checkSubscription = (estimatedTokens = 1000) => {
   return async (req, res, next) => {
     try {
@@ -51,8 +54,9 @@ const checkSubscription = (estimatedTokens = 1000) => {
   };
 };
 
-
-// Dynamic token estimation based on message length
+/**
+ * Dynamic token estimation based on message length
+ */
 const checkSubscriptionDynamic = async (req, res, next) => {
   try {
     const userId = req.user?.id;

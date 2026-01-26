@@ -80,19 +80,51 @@ exports.subscribe = async (req, res, next) => {
       });
     }
 
+    // PREVENT MANUAL FREE PLAN SUBSCRIPTION
+    // Users are auto-subscribed to Free plan on registration
+    if (plan.price === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Free plan is automatically assigned. You already have it!',
+        hint: 'To upgrade, choose Starter or Pro plan.'
+      });
+    }
+
     // Check for existing active subscription
     const existingSubscription = await prisma.userSubscription.findFirst({
       where: {
         userId,
         status: 'ACTIVE'
+      },
+      include: {
+        plan: {
+          select: {
+            name: true,
+            price: true
+          }
+        }
       }
     });
 
     if (existingSubscription) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'You already have an active subscription' 
-      });
+      // Allow upgrading from Free to Paid
+      if (existingSubscription.plan.price === 0 && plan.price > 0) {
+        console.log(`📈 User ${userId} upgrading from Free to ${plan.name}`);
+        // Cancel Free plan subscription
+        await prisma.userSubscription.update({
+          where: { id: existingSubscription.id },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date()
+          }
+        });
+      } else {
+        // Already has a paid plan
+        return res.status(400).json({ 
+          success: false, 
+          message: `You already have an active ${existingSubscription.plan.name} subscription. Please cancel it first or contact support to upgrade.`
+        });
+      }
     }
 
     // Calculate end date
@@ -111,7 +143,8 @@ exports.subscribe = async (req, res, next) => {
         planId,
         status: 'ACTIVE',
         startDate,
-        endDate
+        endDate,
+        requestsUsed: 0 // Reset usage on new subscription
       },
       include: {
         plan: {
@@ -124,7 +157,7 @@ exports.subscribe = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Subscription created successfully',
+      message: `Successfully subscribed to ${plan.name} plan`,
       data: subscription
     });
   } catch (error) {
@@ -150,6 +183,34 @@ exports.getMySubscription = async (req, res, next) => {
         }
       }
     });
+
+    // SAFETY NET: If no subscription found, auto-create Free plan
+    if (!subscription) {
+      console.log('⚠️  No active subscription found, auto-subscribing to Free plan...');
+      
+      const { autoSubscribeFreePlan } = require('../services/auth.service');
+      const newSubscription = await autoSubscribeFreePlan(req.user.id);
+
+      if (newSubscription) {
+        // Fetch the complete subscription data
+        const completeSubscription = await prisma.userSubscription.findUnique({
+          where: { id: newSubscription.id },
+          include: {
+            plan: {
+              include: {
+                gptProduct: true
+              }
+            }
+          }
+        });
+
+        return res.json({
+          success: true,
+          data: completeSubscription,
+          autoCreated: true
+        });
+      }
+    }
 
     res.json({
       success: true,
@@ -196,6 +257,14 @@ exports.cancelSubscription = async (req, res, next) => {
       where: {
         userId: req.user.id,
         status: 'ACTIVE'
+      },
+      include: {
+        plan: {
+          select: {
+            name: true,
+            price: true
+          }
+        }
       }
     });
 
@@ -206,6 +275,16 @@ exports.cancelSubscription = async (req, res, next) => {
       });
     }
 
+    // 🎯 PREVENT CANCELLING FREE PLAN
+    if (subscription.plan.price === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot cancel Free plan. This is your default plan.',
+        hint: 'Free plan stays active until you upgrade.'
+      });
+    }
+
+    // Cancel paid subscription
     const updatedSubscription = await prisma.userSubscription.update({
       where: { id: subscription.id },
       data: {
@@ -214,9 +293,13 @@ exports.cancelSubscription = async (req, res, next) => {
       }
     });
 
+    // 🎯 AUTO-REVERT TO FREE PLAN
+    const { autoSubscribeFreePlan } = require('../services/auth.service');
+    await autoSubscribeFreePlan(req.user.id);
+
     res.json({
       success: true,
-      message: 'Subscription cancelled successfully',
+      message: `${subscription.plan.name} subscription cancelled. You've been reverted to the Free plan.`,
       data: updatedSubscription
     });
   } catch (error) {

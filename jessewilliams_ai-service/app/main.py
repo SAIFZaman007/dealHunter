@@ -138,7 +138,7 @@ async def health():
     return {
         "status": "HEALTHY",
         "service": "AI-Service",
-        "llm_provider": "OpenAI GPT-4o-mini",
+        "llm_provider": "OpenAI GPT-5.2-mini",
         "memory": "enabled",
         "file_generation": "enabled"
     }
