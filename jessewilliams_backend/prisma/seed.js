@@ -1,180 +1,189 @@
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+/**
+ * Database Seed Script - Subscription Plans
+ * Creates proper Free, Starter, and Pro plans with correct pricing
+ */
 
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  console.log('🌱 Starting database seed...\n');
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash('Admin@123456', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@addvancedai.com' },
-    update: {},
-    create: {
-      email: 'admin@addvancedai.com',
-      password: adminPassword,
-      fullName: 'Admin User',
-      role: 'ADMIN',
-      emailVerified: true
-    }
-  });
-  console.log('✅ Admin user created:', admin.email);
-
-  // Create second admin user (admin@gmail.com)
-  const admin2Password = await bcrypt.hash('admin12345', 10);
-  const admin2 = await prisma.user.upsert({
-    where: { email: 'admin@gmail.com' },
-    update: {},
-    create: {
-      email: 'admin@gmail.com',
-      password: admin2Password,
-      fullName: 'Admin',
-      role: 'ADMIN',
-      emailVerified: true
-    }
-  });
-  console.log('✅ Secondary admin user created:', admin2.email);
-
-  // Create Deal Hunter GPT
-  const dealHunterGpt = await prisma.gptProduct.upsert({
+  // ============================================
+  // Step 1: Create or Get GPT Product
+  // ============================================
+  console.log('📦 Setting up GPT Product...');
+  
+  const gptProduct = await prisma.gptProduct.upsert({
     where: { slug: 'deal-hunter' },
-    update: {},
-    create: {
-      name: 'Deal Hunter GPT',
-      slug: 'deal-hunter',
-      description: 'AI-powered real estate deal finder and analyzer. Discover profitable investment opportunities with advanced market analysis and deal scoring.',
-      features: [
-        'Real-time deal discovery',
-        'Property analysis & valuation',
-        'Market trend insights',
-        'Investment scoring',
-        'Comparable property analysis',
-        'ROI calculator'
-      ],
-      icon: '🏠',
-      gptModel: 'gpt-5.2',
-      systemPrompt: 'You are a real estate investment expert specializing in finding and analyzing profitable deals. Help users identify opportunities, analyze properties, and make informed investment decisions.',
+    update: {
+      name: 'Deal Hunter AI',
+      description: 'AI-powered real estate investment assistant that helps you find and analyze profitable property deals',
+      isActive: true,
       isFeatured: true,
-      order: 1
-    }
-  });
-  console.log('✅ Deal Hunter GPT created');
-
-  // Create Underwriting GPT
-  const underwritingGpt = await prisma.gptProduct.upsert({
-    where: { slug: 'underwriting-analyzer' },
-    update: {},
+      gptModel: 'gpt-5.2-mini',
+      systemPrompt: 'You are a professional real estate investment advisor specializing in property analysis and deal hunting.',
+      features: {
+        webSearch: true,
+        fileGeneration: true,
+        marketAnalysis: true,
+        dealScoring: true
+      }
+    },
     create: {
-      name: 'Underwriting & Analyzer GPT',
-      slug: 'underwriting-analyzer',
-      description: 'Comprehensive financial analysis tool for real estate investments. Calculate cash flow, ROI, and validate your investment assumptions.',
-      features: [
-        'Cash flow analysis',
-        'ROI calculations',
-        'Financial projections',
-        'Risk assessment',
-        'Assumption validation',
-        'Sensitivity analysis'
-      ],
-      icon: '📊',
-      gptModel: 'gpt-5.2',
-      systemPrompt: 'You are a financial analyst specializing in real estate underwriting. Help users perform detailed financial analysis, calculate returns, and validate investment assumptions.',
-      isFeatured: false,
-      order: 2
+      name: 'Deal Hunter AI',
+      slug: 'deal-hunter',
+      description: 'AI-powered real estate investment assistant that helps you find and analyze profitable property deals',
+      isActive: true,
+      isFeatured: true,
+      gptModel: 'gpt-5.2-mini',
+      systemPrompt: 'You are a professional real estate investment advisor specializing in property analysis and deal hunting.',
+      features: {
+        webSearch: true,
+        fileGeneration: true,
+        marketAnalysis: true,
+        dealScoring: true
+      }
     }
   });
-  console.log('✅ Underwriting GPT created');
 
-  // Create Offer/Outreach GPT
-  const offerGpt = await prisma.gptProduct.upsert({
-    where: { slug: 'offer-outreach' },
-    update: {},
-    create: {
-      name: 'Offer & Outreach GPT',
-      slug: 'offer-outreach',
-      description: 'Professional communication assistant for real estate deals. Generate LOIs, seller messages, and outreach scripts.',
-      features: [
-        'LOI generation',
-        'Seller outreach scripts',
-        'Negotiation templates',
-        'Email campaigns',
-        'Follow-up sequences',
-        'Professional formatting'
-      ],
-      icon: '✉️',
-      gptModel: 'gpt-5.2',
-      systemPrompt: 'You are a real estate communications expert. Help users create professional letters of intent, seller messages, and outreach scripts for real estate deals.',
-      isFeatured: false,
-      order: 3
+  console.log(`✅ GPT Product: ${gptProduct.name} (${gptProduct.id})\n`);
+
+  // ============================================
+  // Step 2: Delete Old Plans (Clean Slate)
+  // ============================================
+  console.log('🗑️  Cleaning up old subscription plans...');
+  
+  const deletedPlans = await prisma.subscriptionPlan.deleteMany({
+    where: {
+      gptProductId: gptProduct.id
     }
   });
-  console.log('✅ Offer & Outreach GPT created');
+  
+  console.log(`✅ Deleted ${deletedPlans.count} old plan(s)\n`);
 
-  // Create subscription plans for Deal Hunter
-  const dealHunterMonthly = await prisma.subscriptionPlan.create({
-    data: {
-      name: 'Deal Hunter Monthly',
-      description: 'Access to Deal Hunter GPT with monthly billing',
-      price: 49.99,
+  // ============================================
+  // Step 3: Create Proper Subscription Plans
+  // ============================================
+  console.log('💳 Creating subscription plans...\n');
+
+  const plans = [
+    {
+      name: 'Free',
+      description: 'Perfect for new investors and small portfolios. Get started with core AI deal analysis.',
+      price: 0,
       duration: 'MONTHLY',
-      features: [
-        'Unlimited deal searches',
-        'Advanced analytics',
-        'Market insights',
-        'Email support'
-      ],
-      maxRequests: 1000,
-      gptProductId: dealHunterGpt.id
-    }
-  });
-  console.log('✅ Deal Hunter Monthly plan created');
-
-  const dealHunterAnnual = await prisma.subscriptionPlan.create({
-    data: {
-      name: 'Deal Hunter Annual',
-      description: 'Access to Deal Hunter GPT with annual billing (save 20%)',
-      price: 479.99,
-      duration: 'ANNUAL',
-      features: [
-        'Unlimited deal searches',
-        'Advanced analytics',
-        'Market insights',
-        'Priority support',
-        '2 months free'
-      ],
-      maxRequests: 12000,
-      gptProductId: dealHunterGpt.id
-    }
-  });
-  console.log('✅ Deal Hunter Annual plan created');
-
-  // Create bundle plan
-  const bundlePlan = await prisma.subscriptionPlan.create({
-    data: {
-      name: 'Complete AI Deal System',
-      description: 'Access to all 3 GPTs - Deal Hunter, Underwriting, and Offer/Outreach',
-      price: 99.99,
+      maxRequests: 25000, // 2.5 credits
+      stripePriceId: null, // No Stripe for free plan
+      isActive: true,
+      features: {
+        credits: '2.5 / month',
+        tokens: '25,000 tokens',
+        analysis: 'Core AI deal analysis',
+        allocation: 'Hard allocation, no rollover',
+        dealPulls: 'Limited deal pulls and short summaries',
+        evaluation: 'Residential property evaluation',
+        estimates: 'Basic rent & return estimates',
+        reports: 'Limited AI-generated reports',
+        trial: 'Free trial included',
+        targetUser: 'Trial users'
+      }
+    },
+    {
+      name: 'Starter',
+      description: 'Built for active investors who need deeper insights and more analysis power.',
+      price: 29,
       duration: 'MONTHLY',
-      features: [
-        'All 3 specialized GPTs',
-        'Unlimited usage',
-        'Advanced features',
-        'Priority support',
-        'Weekly market reports'
-      ],
-      maxRequests: null, // Unlimited
-      gptProductId: dealHunterGpt.id
+      maxRequests: 150000, // 15 credits
+      stripePriceId: process.env.STRIPE_PRICE_ID_STARTER || null,
+      isActive: true,
+      features: {
+        credits: '15 / month',
+        tokens: '150,000 tokens',
+        analysis: 'Basic ROI and comps',
+        singleDeal: 'Single-deal analysis',
+        processing: 'Priority AI processing',
+        propertyAnalysis: 'Advanced property & land analysis',
+        profitability: 'Fix & flip profitability evaluation',
+        rentalInsights: 'Long-term & short-term rental insights',
+        reports: 'Downloadable Excel & document reports',
+        targetUser: 'Power users'
+      }
+    },
+    {
+      name: 'Pro',
+      description: 'Designed for serious investors and professionals who need the full AI investment toolkit.',
+      price: 59,
+      duration: 'MONTHLY',
+      maxRequests: 500000, // 50 credits
+      stripePriceId: process.env.STRIPE_PRICE_ID_PRO || null,
+      isActive: true,
+      features: {
+        credits: '50 / month',
+        tokens: '500,000 tokens',
+        tiers: 'Profitable tier',
+        bulkAnalysis: 'Bulk deal analysis',
+        logic: 'Land and residential logic',
+        toolkit: 'Full AI investment toolkit',
+        volumeAnalysis: 'High-volume deal analysis',
+        scenarioModeling: 'Advanced scenario modeling',
+        sensitivity: 'Sensitivity analysis and large CSV exports',
+        targetUser: 'Teams / builders'
+      }
     }
-  });
-  console.log('✅ Bundle plan created');
+  ];
 
-  console.log('🎉 Seed completed successfully!');
+  for (const planData of plans) {
+    const plan = await prisma.subscriptionPlan.create({
+      data: {
+        ...planData,
+        gptProductId: gptProduct.id
+      }
+    });
+
+    const credits = plan.maxRequests / 10000;
+    console.log(`  ✅ ${plan.name.padEnd(8)} - $${plan.price.toString().padStart(2)}/month - ${credits.toFixed(1)} credits (${plan.maxRequests.toLocaleString()} tokens)`);
+  }
+
+  // ============================================
+  // Step 4: Display Summary
+  // ============================================
+  console.log('\n📊 Subscription Plans Summary:');
+  console.log('═══════════════════════════════════════════════════════════════');
+  
+  const allPlans = await prisma.subscriptionPlan.findMany({
+    where: { gptProductId: gptProduct.id },
+    orderBy: { price: 'asc' }
+  });
+
+  allPlans.forEach(plan => {
+    const credits = plan.maxRequests / 10000;
+    console.log(`
+Plan: ${plan.name}
+  Price: $${plan.price}/${plan.duration.toLowerCase()}
+  Credits: ${credits} credits/month (${plan.maxRequests.toLocaleString()} tokens)
+  Stripe Price ID: ${plan.stripePriceId || 'N/A (Free plan)'}
+  Status: ${plan.isActive ? '✅ Active' : '❌ Inactive'}
+  Features: ${JSON.stringify(plan.features, null, 2)}
+    `);
+  });
+
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('\n✅ Database seeding completed successfully!\n');
+
+  // ============================================
+  // Step 5: Verify Token Calculations
+  // ============================================
+  console.log('🔍 Verification:');
+  console.log('  1 Credit = 10,000 tokens');
+  console.log('  Free:    2.5 credits × 10,000 = 25,000 tokens ✅');
+  console.log('  Starter: 15 credits × 10,000 = 150,000 tokens ✅');
+  console.log('  Pro:     50 credits × 10,000 = 500,000 tokens ✅\n');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e);
+    console.error('❌ Seeding failed:', e);
     process.exit(1);
   })
   .finally(async () => {

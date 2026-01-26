@@ -2,6 +2,10 @@ const express = require('express');
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const auth = require('../middleware/auth');
+const { checkSubscriptionDynamic } = require('../middleware/checkSubscription');
+const { deductTokens } = require('../services/subscription.service');
+const { calculateChatTokens, tokensToCredits } = require('../utils/tokenCounter');
+
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -111,7 +115,7 @@ router.post('/onboarding', auth, async (req, res) => {
  * CHAT ENDPOINT WITH STREAMING AND FILE GENERATION
  * =====================================================
  */
-router.post('/chat', auth, async (req, res) => {
+router.post('/chat', auth, checkSubscriptionDynamic, async (req, res) => {
   try {
     console.log(`💬 Chat request from user: ${req.user.id}`);
     const { message, sessionId, agentType } = req.body;
@@ -123,7 +127,7 @@ router.post('/chat', auth, async (req, res) => {
       });
     }
 
-    // FETCH USER PROFILE FROM DATABASE
+    // FETCH USER PROFILE
     const userProfile = await prisma.userProfile.findUnique({
       where: { userId: req.user.id }
     });
@@ -164,22 +168,40 @@ router.post('/chat', auth, async (req, res) => {
         }
       );
 
+      const aiResponse = response.data.response;
+
+      // ============================================
+      // CALCULATE & DEDUCT TOKENS
+      // ============================================
+      const tokenUsage = calculateChatTokens(message, aiResponse);
+      
+      try {
+        await deductTokens(req.user.id, tokenUsage.totalTokens);
+        console.log(`💳 Deducted ${tokensToCredits(tokenUsage.totalTokens).toFixed(3)} credits`);
+      } catch (deductError) {
+        console.error('❌ Token deduction error:', deductError);
+        // Continue anyway - don't fail the request
+      }
+
       // ============================================
       // CHECK IF FILE WAS GENERATED
       // ============================================
       if (response.data.fileGenerated && response.data.file) {
         console.log('📄 File generated, returning JSON response');
         
-        // Return JSON response with file data
         return res.json({
           success: true,
-          response: response.data.response,
+          response: aiResponse,
           sessionId,
           fileGenerated: true,
           file: {
             name: response.data.file.name,
-            data: response.data.file.data, // base64
+            data: response.data.file.data,
             mimeType: response.data.file.mimeType
+          },
+          tokenUsage: {
+            used: tokenUsage.totalTokens,
+            credits: tokensToCredits(tokenUsage.totalTokens).toFixed(3)
           }
         });
       }
@@ -189,39 +211,33 @@ router.post('/chat', auth, async (req, res) => {
       // ============================================
       console.log('💬 Streaming text response');
       
-      // Set headers for SSE streaming
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+      res.setHeader('X-Accel-Buffering', 'no');
 
-      // Get the full response
-      const fullResponse = response.data.response;
-
-      // Simulate streaming by sending chunks word by word
-      const words = fullResponse.split(' ');
+      const words = aiResponse.split(' ');
       
       for (let i = 0; i < words.length; i++) {
         const chunk = words[i] + (i < words.length - 1 ? ' ' : '');
-        
-        // Send chunk as SSE
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-        
-        // Small delay to simulate natural typing (30ms per word)
         await new Promise(resolve => setTimeout(resolve, 30));
-        
-        // Flush the response to ensure chunk is sent immediately
         if (res.flush) res.flush();
       }
 
-      // Send completion signal
+      // Send token usage with completion
+      res.write(`data: ${JSON.stringify({ 
+        tokenUsage: {
+          used: tokenUsage.totalTokens,
+          credits: tokensToCredits(tokenUsage.totalTokens).toFixed(3)
+        }
+      })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
 
     } catch (error) {
       console.error('❌ AI Service error:', error.response?.data || error.message);
       
-      // Only send JSON error if headers not sent yet
       if (!res.headersSent) {
         return res.status(500).json({
           success: false,
@@ -229,10 +245,9 @@ router.post('/chat', auth, async (req, res) => {
         });
       }
       
-      // If streaming already started, send error in stream format
       res.write(`data: ${JSON.stringify({ 
         error: 'Failed to process message',
-        content: 'I apologize, but I encountered an error. Please try again.'
+        content: 'I apologize, but I encountered an error. Please try again after upgrading your plan.'
       })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
@@ -241,14 +256,12 @@ router.post('/chat', auth, async (req, res) => {
   } catch (error) {
     console.error('❌ Chat error:', error.message);
     
-    // Only send JSON error if headers not sent yet
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
         error: 'Failed to process message'
       });
     } else {
-      // If streaming already started, send error in stream format
       res.write(`data: ${JSON.stringify({ 
         error: 'Server error',
         content: 'An unexpected error occurred.'
@@ -258,6 +271,37 @@ router.post('/chat', auth, async (req, res) => {
     }
   }
 });
+
+/**
+ * =====================================================
+ * GET USAGE STATISTICS
+ * =====================================================
+ */
+router.get('/usage', auth, async (req, res) => {
+  try {
+    const { getUsageStats } = require('../services/subscription.service');
+    const stats = await getUsageStats(req.user.id);
+
+    if (!stats) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active subscription found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('❌ Usage stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch usage statistics'
+    });
+  }
+});
+
 
 /**
  * =====================================================
